@@ -1,0 +1,91 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                                   Good Morning MT4 |
+//|                                        Developer: Forex Robot Easy Team |
+//|                                 Website: forexroboteasy.com          |
+//+------------------------------------------------------------------+
+#property copyright 'Forex Robot Easy Team'
+#property link      'forexroboteasy.com'
+
+// Input parameters
+input int CandleSize = 20; // Minimum size of a candle
+input int RsiPeriod = 14;  // Period of the RSI indicator
+input int UpperRangePercent = 70; // Percentage to determine upper part of the range
+input int LowerRangePercent = 30; // Percentage to determine lower part of the range
+
+// Global variables
+int ticket = 0; // Ticket number of the last opened trade
+
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    // Place initialization code here
+    return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+    // Place deinitialization code here
+}
+
+//+------------------------------------------------------------------+
+//| Expert start function                                            |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    // Calculate the size of the current candle
+    double candleSize = MathAbs(High[1] - Low[1]);
+
+    // Calculate the RSI value
+    double rsiValue = iRSI(Symbol(), 0, RsiPeriod, PRICE_CLOSE, 1);
+
+    // Calculate the price range
+    double rangeHigh = iHigh(Symbol(), 0, MODE_HIGH, CandleSize, 1);
+    double rangeLow = iLow(Symbol(), 0, MODE_LOW, CandleSize, 1);
+    double rangeSize = rangeHigh - rangeLow;
+
+    // Open a trade if conditions are met
+    if (candleSize >= CandleSize && rsiValue >= UpperRangePercent)
+    {
+        ticket = OrderSend(Symbol(), OP_BUY, 0.01, Ask, 0, 0, 0, 'Buy', 0, 0, clrGreen);
+    }
+    else if (candleSize >= CandleSize && rsiValue <= LowerRangePercent)
+    {
+        ticket = OrderSend(Symbol(), OP_SELL, 0.01, Bid, 0, 0, 0, 'Sell', 0, 0, clrRed);
+    }
+
+    // Check if trade was opened successfully
+    if (ticket > 0)
+    {
+        // Check for high spread
+        if (Ask - Bid > MarketInfo(Symbol(), MODE_SPREAD))
+        {
+            // Close the trade due to high spread
+            OrderClose(ticket, OrderLots(), Bid, 0, clrRed);
+        }
+    }
+
+    // Close the trade in the order they were opened (FIFO principle)
+    for (int i = OrdersTotal() - 1; i >= 0; i--)
+    {
+        if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            if (OrderSymbol() == Symbol() && OrderMagicNumber() == MagicNumber())
+            {
+                if (OrderType() == OP_BUY)
+                {
+                    OrderClose(OrderTicket(), OrderLots(), Bid, 0, clrRed);
+                }
+                else if (OrderType() == OP_SELL)
+                {
+                    OrderClose(OrderTicket(), OrderLots(), Ask, 0, clrGreen);
+                }
+            }
+        }
+    }
+}
